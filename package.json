@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS='--max-old-space-size=1536 --require=./scripts/fs-rename-exdev-fallback.cjs' NEXT_TELEMETRY_DISABLED=1 next build",
     "postbuild": "mkdir -p .next/standalone/.next && cp -a .next/static .next/standalone/.next/ && cp -a public .next/standalone/ && cp .next/prerender-manifest.json .next/standalone/ && cp .next/routes-manifest.json .next/standalone/",
     "start": "next start -p 3000",
     "lint": "eslint .",
