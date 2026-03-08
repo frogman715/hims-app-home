@@ -35,6 +35,11 @@ function ApplicationsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>(searchParams.get('status') || 'ALL');
+  const userRoles = Array.isArray(session?.user?.roles)
+    ? session.user.roles.map((role) => role.toUpperCase())
+    : [];
+  const isDirector = userRoles.includes("DIRECTOR") || Boolean(session?.user?.isSystemAdmin);
+  const isDocument = userRoles.includes("DOCUMENT");
 
   const fetchApplications = useCallback(async () => {
     if (status === "loading") {
@@ -79,9 +84,13 @@ function ApplicationsContent() {
 
       if (response.ok) {
         fetchApplications();
+      } else {
+        const data = await response.json().catch(() => ({ error: "Failed to update status" }));
+        setError(data.error || "Failed to update status");
       }
     } catch (error) {
       console.error("Error updating status:", error);
+      setError("Error updating status");
     }
   };
 
@@ -168,12 +177,14 @@ function ApplicationsContent() {
               >
                 ← Workflow
               </Link>
-              <Link
-                href="/crewing/applications/new"
-                className="px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
-              >
-                + New Application
-              </Link>
+              {(isDocument || isDirector) ? (
+                <Link
+                  href="/crewing/applications/new"
+                  className="px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+                >
+                  + New Application
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -305,56 +316,38 @@ function ApplicationsContent() {
                       📄 Download CR-02
                     </a>
                     
-                    {application.status === 'RECEIVED' && (
+                    {application.status === 'RECEIVED' && isDocument && (
                       <button
                         onClick={() => handleStatusChange(application.id, 'REVIEWING')}
                         className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-all duration-200"
                       >
-                        Start Review
+                        Submit to Director
                       </button>
                     )}
                     
-                    {application.status === 'REVIEWING' && (
+                    {application.status === 'REVIEWING' && isDirector && (
                       <>
                         <button
-                          onClick={() => handleStatusChange(application.id, 'INTERVIEW')}
-                          className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600 transition-all duration-200"
+                          onClick={() => handleStatusChange(application.id, 'PASSED')}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-all duration-200"
                         >
-                          Schedule Interview
+                          Approve Candidate
                         </button>
                         <button
                           onClick={() => handleStatusChange(application.id, 'REJECTED')}
                           className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-all duration-200"
                         >
-                          Reject
+                          Reject Candidate
                         </button>
                       </>
                     )}
 
-                    {application.status === 'INTERVIEW' && (
-                      <Link
-                        href={`/crewing/interviews/new?applicationId=${application.id}`}
-                        className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-semibold hover:bg-indigo-600 transition-all duration-200 text-center"
-                      >
-                        Conduct Interview
-                      </Link>
-                    )}
-
-                    {application.status === 'PASSED' && (
+                    {application.status === 'PASSED' && isDirector && (
                       <button
                         onClick={() => handleStatusChange(application.id, 'OFFERED')}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-all duration-200"
+                        className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-semibold hover:bg-indigo-600 transition-all duration-200"
                       >
-                        Offer Position
-                      </button>
-                    )}
-
-                    {application.status === 'OFFERED' && (
-                      <button
-                        onClick={() => handleStatusChange(application.id, 'ACCEPTED')}
-                        className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition-all duration-200"
-                      >
-                        Mark Accepted
+                        Send to Principal
                       </button>
                     )}
                   </div>

@@ -54,25 +54,8 @@ export default function SidebarNav({ items }: SidebarNavProps) {
 
   return (
     <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-      {/* Dashboard - Always First */}
-      <Link
-        href="/dashboard"
-        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 font-semibold border border-transparent shadow-md transition-all duration-200 ${
-          pathname === "/dashboard"
-            ? "bg-white text-slate-900 hover:border-blue-200"
-            : "bg-blue-600 text-white hover:bg-blue-500"
-        }`}
-      >
-        <span className="text-xl text-current">📊</span>
-        <span className="text-sm text-current">Dashboard</span>
-      </Link>
-
-      <div className="h-px bg-white/10 my-2"></div>
-
       {/* Grouped Navigation Items */}
-      {Object.entries(groupedItems)
-        .filter(([group]) => group !== "MAIN") // Exclude MAIN group since Dashboard is hardcoded above
-        .map(([group, groupItems]) => (
+      {Object.entries(groupedItems).map(([group, groupItems]) => (
           <div key={group} className="pt-1">
             <div className="px-3 py-1.5 text-xs font-bold text-white/50 uppercase tracking-wider">
               {group}

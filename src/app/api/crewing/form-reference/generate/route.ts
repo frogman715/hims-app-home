@@ -126,10 +126,11 @@ export const GET = async (request: NextRequest) => {
       );
     }
 
-    // Allow directors, HR staff, and system admins
+    // Allow candidate flow roles and legacy staff during transition.
     const userRoles = session.user?.roles || [];
     const hasAccess =
       userRoles.includes("DIRECTOR") ||
+      userRoles.includes("DOCUMENT") ||
       userRoles.includes("HR") ||
       userRoles.includes("HR_ADMIN") ||
       session.user?.isSystemAdmin;

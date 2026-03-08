@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
 import type { RolePermissionOverride } from "@/lib/permissions";
 import { env } from "@/lib/env";
+import { getLegacyRolesForOverrideQuery, resolveAuthRoles } from "@/lib/role-compat";
 
 enum Role {
   DIRECTOR = "DIRECTOR",
@@ -132,7 +133,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const normalizedRoles = uniqueRolesFrom(user.role);
+        const normalizedRoles = uniqueRolesFrom(
+          { userId: user.id, email: user.email },
+          user.role
+        );
         if (normalizedRoles.length === 0) {
           console.warn("[auth] user-role-missing", {
             userId: user.id,
@@ -161,7 +165,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }) {
       try {
         const previousRoles = Array.isArray(token.roles) ? [...token.roles] : [];
-        let resolvedRoles = uniqueRolesFrom(token.roles, token.role);
+        let resolvedRoles = uniqueRolesFrom(
+          { userId: token.sub, email: token.email },
+          token.roles,
+          token.role
+        );
         let primaryRole = resolvedRoles[0];
         let userIdFromSource: string | undefined;
 
@@ -182,7 +190,12 @@ export const authOptions: NextAuthOptions = {
             }
           }
 
-          resolvedRoles = uniqueRolesFrom(user.roles, user.role, dbRole);
+          resolvedRoles = uniqueRolesFrom(
+            { userId, email: user.email },
+            user.roles,
+            user.role,
+            dbRole
+          );
           if (resolvedRoles.length === 0) {
             resolvedRoles = ["CREW_PORTAL"];
           }
@@ -194,7 +207,7 @@ export const authOptions: NextAuthOptions = {
         if ((!primaryRole || resolvedRoles.length === 0) && tokenSubject) {
           try {
             const dbRole = await fetchUserRole(tokenSubject, "jwt:token-subject");
-            const dbRoles = uniqueRolesFrom(dbRole);
+            const dbRoles = uniqueRolesFrom({ userId: tokenSubject, email: token.email }, dbRole);
             if (dbRoles.length > 0) {
               resolvedRoles = dbRoles;
               primaryRole = dbRoles[0];
@@ -325,6 +338,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           let normalizedRoles = uniqueRolesFrom(
+            { userId: session.user.id ?? token.sub, email: session.user.email ?? token.email },
             tokenUser?.roles,
             token.roles,
             token.role,
@@ -334,7 +348,10 @@ export const authOptions: NextAuthOptions = {
           if (normalizedRoles.length === 0 && session.user.id) {
             try {
               const dbRole = await fetchUserRole(session.user.id, "session:user-role");
-              normalizedRoles = uniqueRolesFrom(dbRole);
+              normalizedRoles = uniqueRolesFrom(
+                { userId: session.user.id, email: session.user.email ?? token.email },
+                dbRole
+              );
             } catch (error) {
               console.error("[auth] session: failed to fetch user role", {
                 userId: session.user.id,
@@ -394,7 +411,10 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-function uniqueRolesFrom(...sources: (string | string[] | null | undefined)[]): string[] {
+function uniqueRolesFrom(
+  context: { userId?: string | null; email?: string | null } | null,
+  ...sources: (string | string[] | null | undefined)[]
+): string[] {
   const collected: string[] = [];
 
   for (const source of sources) {
@@ -416,8 +436,11 @@ function uniqueRolesFrom(...sources: (string | string[] | null | undefined)[]): 
     }
   }
 
-  const deduped = Array.from(new Set(collected));
-  return deduped;
+  return resolveAuthRoles({
+    rawRoles: collected,
+    userId: context?.userId,
+    email: context?.email,
+  });
 }
 
 async function loadPermissionOverrides(roles: string[]): Promise<RolePermissionOverride[]> {
@@ -427,9 +450,9 @@ async function loadPermissionOverrides(roles: string[]): Promise<RolePermissionO
 
   const normalizedRoles = Array.from(
     new Set(
-      roles
-        .map((role) => role.toUpperCase())
-        .filter((role): role is string => (Object.values(Role) as string[]).includes(role))
+      getLegacyRolesForOverrideQuery(roles).filter((role): role is string =>
+        (Object.values(Role) as string[]).includes(role)
+      )
     )
   );
 

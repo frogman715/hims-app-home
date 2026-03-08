@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import type { AppRole } from "@/lib/roles";
 import { ALL_APP_ROLES, APP_ROLES, CREW_ROLE_SET } from "@/lib/roles";
+import { resolveAuthRoles } from "@/lib/role-compat";
 
 export { APP_ROLES, OFFICE_ROLES, CREW_ROLES } from "@/lib/roles";
 export type { AppRole } from "@/lib/roles";
@@ -26,10 +27,13 @@ const ALL_VALID_ROLES: readonly AppRole[] = ALL_APP_ROLES;
 const ROLE_HOME_MAP: Record<AppRole, string> = {
   [APP_ROLES.CREW]: "/m/crew",
   [APP_ROLES.CREW_PORTAL]: "/m/crew",
+  [APP_ROLES.DRIVER]: "/m/crew",
   [APP_ROLES.DIRECTOR]: "/dashboard",
-  [APP_ROLES.CDMO]: "/dashboard",
+  [APP_ROLES.DOCUMENT]: "/dashboard",
   [APP_ROLES.OPERATIONAL]: "/dashboard",
   [APP_ROLES.ACCOUNTING]: "/dashboard",
+  [APP_ROLES.PRINCIPAL]: "/dashboard",
+  [APP_ROLES.CDMO]: "/dashboard",
   [APP_ROLES.HR]: "/dashboard",
   [APP_ROLES.HR_ADMIN]: "/dashboard",
   [APP_ROLES.QMR]: "/dashboard",
@@ -54,40 +58,26 @@ function dedupe<T>(values: T[]): T[] {
   return Array.from(new Set(values));
 }
 
-function coerceRole(value?: string | null): AppRole | null {
-  if (!value) {
-    return null;
-  }
-  const upper = value.toUpperCase() as AppRole;
-  if ((ALL_VALID_ROLES as readonly AppRole[]).includes(upper)) {
-    return upper;
-  }
-  return null;
+function isKnownRole(role: string): role is AppRole {
+  return (ALL_VALID_ROLES as readonly string[]).includes(role);
 }
 
-export function normalizeUser(rawUser: Partial<AppUser> & { id?: string; role?: string; roles?: string[] }): AppUser {
+export function normalizeUser(
+  rawUser: Partial<AppUser> & { id?: string; role?: string; roles?: string[]; email?: string | null }
+): AppUser {
   const id = rawUser.id ?? "";
-  const initialRoles: AppRole[] = [];
 
-  const primaryFromRole = coerceRole(rawUser.role);
-  if (primaryFromRole) {
-    initialRoles.push(primaryFromRole);
-  }
+  const resolved = resolveAuthRoles({
+    rawRoles: [rawUser.role, ...(Array.isArray(rawUser.roles) ? rawUser.roles : [])],
+    userId: id,
+    email: rawUser.email,
+  })
+    .map((role) => role.toUpperCase())
+    .filter(isKnownRole);
 
-  if (Array.isArray(rawUser.roles)) {
-    for (const value of rawUser.roles) {
-      const coerced = coerceRole(value);
-      if (coerced) {
-        initialRoles.push(coerced);
-      }
-    }
-  }
-
-  const deduped = dedupe(initialRoles);
+  const deduped = dedupe(resolved);
   const primary = deduped.find((role) => !CREW_ROLE_SET.has(role)) ?? deduped[0] ?? APP_ROLES.CREW_PORTAL;
-  const orderedRoles = primary
-    ? [primary, ...deduped.filter((role) => role !== primary)]
-    : deduped;
+  const orderedRoles = primary ? [primary, ...deduped.filter((role) => role !== primary)] : deduped;
   const roles = (orderedRoles.length > 0 ? orderedRoles : [APP_ROLES.CREW_PORTAL]) as AppRole[];
 
   return {
@@ -118,7 +108,7 @@ export async function requireUser(options: RequireUserOptions = {}) {
       redirect("/auth/signin");
     }
 
-    const normalized = normalizeUser(session.user as Partial<AppUser>);
+    const normalized = normalizeUser(session.user as Partial<AppUser> & { email?: string | null });
     const isCrew = isCrewRole(normalized.role, normalized.roles);
 
     session.user.role = normalized.role;
@@ -157,7 +147,7 @@ export async function requireUser(options: RequireUserOptions = {}) {
     if (
       options.allowedRoles &&
       options.allowedRoles.length > 0 &&
-      !options.allowedRoles.some((role) => normalized.roles.includes(role))
+      !options.allowedRoles.some((allowedRole) => normalized.roles.includes(allowedRole))
     ) {
       logAuthEvent("redirect-disallowed", {
         userId: normalized.id,
@@ -175,24 +165,21 @@ export async function requireUser(options: RequireUserOptions = {}) {
       isCrew,
     };
   } catch (error) {
-    // Handle session fetch errors gracefully
     if (error && typeof error === "object") {
-      // Allow Next.js redirects to pass through
-      // Next.js redirect errors have a specific digest property pattern
       const errorObj = error as { digest?: string; message?: string };
-      if (errorObj.digest?.startsWith("NEXT_REDIRECT") || 
-          (errorObj.message && errorObj.message.includes("NEXT_REDIRECT"))) {
+      if (
+        errorObj.digest?.startsWith("NEXT_REDIRECT") ||
+        (errorObj.message && errorObj.message.includes("NEXT_REDIRECT"))
+      ) {
         throw error;
       }
 
-      // Log authentication errors for debugging
       console.error("[authz] requireUser failed", {
         error: String(errorObj.message || error),
         timestamp: new Date().toISOString(),
       });
     }
 
-    // For any other error, redirect to login with error indication
     redirect("/auth/signin?error=SessionError");
   }
 }
@@ -205,7 +192,7 @@ export async function requireCrew() {
       redirect("/auth/signin");
     }
 
-    const normalized = normalizeUser(session.user as Partial<AppUser>);
+    const normalized = normalizeUser(session.user as Partial<AppUser> & { email?: string | null });
     const isCrew = isCrewRole(normalized.role, normalized.roles);
 
     session.user.role = normalized.role;
@@ -233,24 +220,21 @@ export async function requireCrew() {
       user: normalized,
     };
   } catch (error) {
-    // Handle session fetch errors gracefully
     if (error && typeof error === "object") {
-      // Allow Next.js redirects to pass through
-      // Next.js redirect errors have a specific digest property pattern
       const errorObj = error as { digest?: string; message?: string };
-      if (errorObj.digest?.startsWith("NEXT_REDIRECT") || 
-          (errorObj.message && errorObj.message.includes("NEXT_REDIRECT"))) {
+      if (
+        errorObj.digest?.startsWith("NEXT_REDIRECT") ||
+        (errorObj.message && errorObj.message.includes("NEXT_REDIRECT"))
+      ) {
         throw error;
       }
 
-      // Log authentication errors for debugging
       console.error("[authz] requireCrew failed", {
         error: String(errorObj.message || error),
         timestamp: new Date().toISOString(),
       });
     }
 
-    // For any other error, redirect to login with error indication
     redirect("/auth/signin?error=SessionError");
   }
 }
@@ -266,15 +250,18 @@ export async function requireUserApi(allowedRoles?: AppRole[]): Promise<RequireU
       return { ok: false, status: 401, message: "UNAUTHORIZED" };
     }
 
-    const normalized = normalizeUser(session.user as Partial<AppUser>);
+    const normalized = normalizeUser(session.user as Partial<AppUser> & { email?: string | null });
     const isCrew = isCrewRole(normalized.role, normalized.roles);
 
-    if (
-      allowedRoles &&
-      allowedRoles.length > 0 &&
-      !allowedRoles.some((role) => normalized.roles.includes(role))
-    ) {
-      return { ok: false, status: 403, message: "FORBIDDEN" };
+    if (allowedRoles && allowedRoles.length > 0) {
+      const allowedResolved = new Set<string>(resolveAuthRoles({ rawRoles: allowedRoles }));
+      const isAllowed = normalized.roles.some(
+        (role) => allowedResolved.has(role) || allowedRoles.includes(role)
+      );
+
+      if (!isAllowed) {
+        return { ok: false, status: 403, message: "FORBIDDEN" };
+      }
     }
 
     session.user.role = normalized.role;
@@ -287,14 +274,12 @@ export async function requireUserApi(allowedRoles?: AppRole[]): Promise<RequireU
       isCrew,
     };
   } catch (error) {
-    // Log API authentication errors
     console.error("[authz] requireUserApi failed", {
       error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString(),
       allowedRoles: allowedRoles ?? null,
     });
 
-    // Return unauthorized for session errors
     return { ok: false, status: 401, message: "AUTHENTICATION_ERROR" };
   }
 }

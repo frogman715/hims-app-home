@@ -51,7 +51,7 @@ export async function GET(
   const { prepareJoiningId } = await context.params;
   try {
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.VIEW_ACCESS)) {
+    if (!checkPermission(session, "letterGuarantee", PermissionLevel.VIEW_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
@@ -375,7 +375,7 @@ export async function POST(
   try {
     const { prepareJoiningId } = await context.params;
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.EDIT_ACCESS)) {
+    if (!checkPermission(session, "letterGuarantee", PermissionLevel.EDIT_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }

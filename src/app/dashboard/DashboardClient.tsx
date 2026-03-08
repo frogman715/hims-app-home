@@ -378,12 +378,17 @@ export default function DashboardClient() {
     switch (userRole) {
       case APP_ROLES.DIRECTOR:
         return <DirectorDashboard {...sharedProps} />;
+      case APP_ROLES.DOCUMENT:
       case APP_ROLES.CDMO:
         return <CDMODashboard {...sharedProps} />;
       case APP_ROLES.ACCOUNTING:
         return <AccountingDashboard {...sharedProps} />;
       case APP_ROLES.OPERATIONAL:
         return <OperationalDashboard {...sharedProps} />;
+      case APP_ROLES.PRINCIPAL:
+        return <OperationalDashboard {...sharedProps} />;
+      case APP_ROLES.DRIVER:
+        return <CrewPortalDashboard {...sharedProps} />;
       case APP_ROLES.HR:
         return <HRDashboard {...sharedProps} />;
       case APP_ROLES.CREW_PORTAL:

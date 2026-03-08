@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkPermission, PermissionLevel } from "@/lib/permission-middleware";
+import {
+  hasAnyRole,
+  isHgiFlowTransition,
+  validateHgiFlowTransition,
+  HGI_DIRECTOR_ROLES,
+  HGI_DOCUMENT_ROLES,
+} from "@/lib/candidate-flow";
+import { isValidStateTransition } from "@/types/crewing";
 
 // Define ApplicationStatus enum locally since it's not in Prisma schema
 enum ApplicationStatus {
@@ -118,6 +127,9 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (!checkPermission(session, "applications", PermissionLevel.VIEW_ACCESS)) {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    }
 
     const { id } = await context.params;
     const applicationId = id; // Keep as string since id is cuid
@@ -168,6 +180,9 @@ export async function PUT(
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (!checkPermission(session, "applications", PermissionLevel.EDIT_ACCESS)) {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    }
 
     const { id } = await context.params;
     const applicationId = id;
@@ -177,9 +192,68 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid application update payload" }, { status: 400 });
     }
 
+    const existingApplication = await prisma.application.findUnique({
+      where: { id: applicationId },
+      select: {
+        id: true,
+        status: true,
+        principalId: true,
+      },
+    });
+
+    if (!existingApplication) {
+      return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
+
+    const userRoles = (Array.isArray(session.user?.roles) ? session.user.roles : []).map((role) =>
+      role.toUpperCase()
+    );
+    const isDirector = hasAnyRole(userRoles, HGI_DIRECTOR_ROLES);
+    const isDocument = hasAnyRole(userRoles, HGI_DOCUMENT_ROLES);
+
+    if (!isDirector && !isDocument) {
+      return NextResponse.json(
+        { error: "Only DOCUMENT or DIRECTOR can modify candidate flow in this endpoint." },
+        { status: 403 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {};
     
     if (body.status !== undefined) {
+      const nextStatus = body.status.toUpperCase();
+      const currentStatus = existingApplication.status.toUpperCase();
+
+      if (isHgiFlowTransition(currentStatus, nextStatus)) {
+        const requestedPrincipalId =
+          body.principalId !== undefined ? normalizeOptionalString(body.principalId) : existingApplication.principalId;
+
+        const validation = validateHgiFlowTransition({
+          userRoles,
+          fromStatus: currentStatus,
+          toStatus: nextStatus,
+          principalId: requestedPrincipalId,
+        });
+
+        if (!validation.allowed) {
+          return NextResponse.json({ error: validation.reason ?? "Forbidden transition" }, { status: 403 });
+        }
+      } else {
+        // Keep legacy statuses intact but restrict non-HGI transition execution to DIRECTOR.
+        if (!isDirector) {
+          return NextResponse.json(
+            { error: "Only DIRECTOR can execute legacy/non-HGI transitions." },
+            { status: 403 }
+          );
+        }
+        if (!isValidStateTransition(currentStatus, nextStatus)) {
+          return NextResponse.json(
+            { error: `Invalid transition from ${currentStatus} to ${nextStatus}` },
+            { status: 400 }
+          );
+        }
+      }
+
       updateData.status = body.status;
       if (body.status !== ApplicationStatus.RECEIVED && session.user?.id) {
         updateData.reviewedBy = session.user.id;

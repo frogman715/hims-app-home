@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
+// TODO(Phase 3): This page still uses legacy shape/status assumptions
+// (numeric IDs and PENDING/APPROVED labels). Not refactored in Phase 2
+// to keep candidate-flow patch minimal and low-risk.
+
 interface ApplicationFormData {
   appliedRank: string;
   status: string;
