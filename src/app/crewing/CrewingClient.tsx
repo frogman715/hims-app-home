@@ -451,6 +451,14 @@ export default function CrewingClient() {
           stats: formatStat(stats?.crewReplacementPending, "Pending"),
         },
         {
+          title: "Rotation Board",
+          description: "Read-only due-off and replacement demand per vessel",
+          href: "/crewing/rotation-board",
+          icon: "🧭",
+          color: "from-cyan-700 to-blue-700",
+          stats: formatStat(stats?.signOffThisMonth, "Due-Off Signals"),
+        },
+        {
           title: "Sign-Off Records",
           description: "Crew sign-off tracking and archives",
           href: "/crewing/sign-off",
