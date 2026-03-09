@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPermission, PermissionLevel } from "@/lib/permission-middleware";
 import { handleApiError, ApiError } from "@/lib/error-handler";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -132,6 +133,27 @@ export async function POST(request: Request) {
         currency: currency || 'USD'
       }
     });
+
+    if (session.user.id) {
+      await recordAuditLog({
+        actorUserId: session.user.id,
+        action: "EMPLOYMENT_CONTRACT_CREATED",
+        entityType: "EMPLOYMENT_CONTRACT",
+        entityId: contract.id,
+        metadata: {
+          contractNumber: contract.contractNumber,
+          crewId: contract.crewId,
+          contractKind: contract.contractKind,
+          status: contract.status,
+        },
+        after: {
+          status: contract.status,
+          contractStart: contract.contractStart,
+          contractEnd: contract.contractEnd,
+          rank: contract.rank,
+        },
+      });
+    }
 
     return NextResponse.json(contract);
   } catch (error) {

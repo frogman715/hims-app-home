@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 export async function POST(
   request: NextRequest,
@@ -12,6 +13,12 @@ export async function POST(
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!canMutateOperationalWorkflow(session.user?.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
+        { status: 403 }
+      );
     }
 
     const complianceId = id;

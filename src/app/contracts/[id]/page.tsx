@@ -29,8 +29,7 @@ interface EmploymentContract {
   currency: string;
   crew: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     nationality: string;
     dateOfBirth: string;
     passportNumber: string;
@@ -143,11 +142,12 @@ export default function ContractDetailPage() {
               </svg>
               Print Contract
             </button>
+            {/* TODO(phase-6): add dedicated /contracts/[id]/edit page if needed. */}
             <Link
-              href={`/contracts/${contract.id}/edit`}
+              href="/contracts"
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
-              Edit Contract
+              Open Contracts Manager
             </Link>
             <Link
               href="/contracts"
@@ -237,7 +237,7 @@ export default function ContractDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-900">Full Name</label>
-                <p className="mt-1 text-sm text-gray-900">{contract.crew.firstName} {contract.crew.lastName}</p>
+                <p className="mt-1 text-sm text-gray-900">{contract.crew.fullName}</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-900">Nationality</label>

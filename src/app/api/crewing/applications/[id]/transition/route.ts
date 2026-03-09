@@ -82,6 +82,8 @@ export const POST = withPermission(
               where: { id: application.crewId },
               data: { status: "STANDBY" },
             });
+            // TODO(Phase 4): Align this legacy transition endpoint with
+            // ensurePrepareJoiningForAcceptedCandidate to prevent handoff drift.
             break;
 
           case "REJECTED":

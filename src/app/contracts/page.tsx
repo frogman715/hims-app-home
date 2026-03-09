@@ -595,7 +595,7 @@ export default function ContractsPage() {
                   <option value="ACTIVE">Active</option>
                   <option value="COMPLETED">Completed</option>
                   <option value="TERMINATED">Terminated</option>
-                  <option value="PENDING">Pending</option>
+                  <option value="DRAFT">Draft</option>
                 </select>
               </div>
               <div>

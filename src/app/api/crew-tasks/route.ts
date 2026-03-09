@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireUserApi } from "@/lib/authz";
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 // GET /api/crew-tasks - List tasks based on filters
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireUserApi();
+    if (!auth.ok) {
+      const statusCode = "status" in auth ? auth.status : 401;
+      return NextResponse.json({ error: "Unauthorized" }, { status: statusCode });
+    }
+
     const { searchParams } = new URL(req.url);
     const crewId = searchParams.get('crewId');
     const status = searchParams.get('status');
@@ -47,6 +55,18 @@ export async function GET(req: NextRequest) {
 // POST /api/crew-tasks - Create a new task
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireUserApi();
+    if (!auth.ok) {
+      const statusCode = "status" in auth ? auth.status : 401;
+      return NextResponse.json({ error: "Unauthorized" }, { status: statusCode });
+    }
+    if (!canMutateOperationalWorkflow(auth.user.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { crewId, taskType, title, description, assignedTo, dueDate, priority } = body;
 

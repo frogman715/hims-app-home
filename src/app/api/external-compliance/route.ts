@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withPermission } from "@/lib/api-middleware";
 import { PermissionLevel } from "@/lib/permission-middleware";
 import { ApiError, validateRequired } from "@/lib/error-handler";
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 enum ComplianceSystemType {
   ISO_9001 = "ISO_9001",
@@ -22,7 +23,7 @@ enum ComplianceStatus {
  * GET /api/external-compliance
  * Get all external compliance records with filtering
  */
-export const GET = withPermission("compliance", PermissionLevel.VIEW_ACCESS, async (req) => {
+export const GET = withPermission("visaClearance", PermissionLevel.VIEW_ACCESS, async (req) => {
   const { searchParams } = new URL(req.url);
   const crewId = searchParams.get("crewId");
   const systemType = searchParams.get("systemType") as ComplianceSystemType | null;
@@ -66,7 +67,11 @@ interface CreateExternalCompliancePayload {
   notes?: string | null;
 }
 
-export const POST = withPermission("compliance", PermissionLevel.EDIT_ACCESS, async (req) => {
+export const POST = withPermission("visaClearance", PermissionLevel.EDIT_ACCESS, async (req, session) => {
+  if (!canMutateOperationalWorkflow(session.user?.roles)) {
+    throw new ApiError(403, "Only OPERATIONAL or DIRECTOR can mutate operational workflow.", "FORBIDDEN");
+  }
+
   const body = (await req.json()) as CreateExternalCompliancePayload;
 
   const crewId = body.crewId;

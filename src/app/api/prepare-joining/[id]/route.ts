@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPermission, PermissionLevel } from "@/lib/permission-middleware";
+import {
+  canMutateOperationalWorkflow,
+  validatePrepareJoiningTransition,
+  type PrepareJoiningGateSnapshot,
+} from "@/lib/operational-flow";
 
 // Use Prisma enum instead of local enum
 type PrepareJoiningStatus = "PENDING" | "DOCUMENTS" | "MEDICAL" | "TRAINING" | "TRAVEL" | "READY" | "DISPATCHED" | "CANCELLED";
@@ -128,7 +133,7 @@ export async function GET(
   const { id } = await context.params;
   try {
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.VIEW_ACCESS)) {
+    if (!checkPermission(session, "preJoining", PermissionLevel.VIEW_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
@@ -200,14 +205,48 @@ export async function PUT(
   const { id } = await context.params;
   try {
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.EDIT_ACCESS)) {
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!checkPermission(session, "preJoining", PermissionLevel.EDIT_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 }
       );
     }
+    if (!canMutateOperationalWorkflow(session.user?.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
+        { status: 403 }
+      );
+    }
 
     const body = (await req.json()) as UpdatePrepareJoiningPayload;
+    const existingPrepareJoining = await prisma.prepareJoining.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        passportValid: true,
+        seamanBookValid: true,
+        certificatesValid: true,
+        medicalValid: true,
+        mcuCompleted: true,
+        orientationCompleted: true,
+        orientationDate: true,
+        visaValid: true,
+        ticketBooked: true,
+        transportArranged: true,
+        vesselContractSigned: true,
+        preDepartureFinalCheck: true,
+      },
+    });
+
+    if (!existingPrepareJoining) {
+      return NextResponse.json(
+        { error: "Prepare joining not found" },
+        { status: 404 }
+      );
+    }
 
     const updateData: Record<string, unknown> = {};
 
@@ -223,6 +262,24 @@ export async function PUT(
         );
       }
       updateData.status = normalizedStatus as PrepareJoiningStatus;
+
+      const gateSnapshot: PrepareJoiningGateSnapshot = {
+        ...existingPrepareJoining,
+        status: existingPrepareJoining.status,
+      };
+
+      const transitionCheck = validatePrepareJoiningTransition({
+        fromStatus: existingPrepareJoining.status,
+        toStatus: normalizedStatus,
+        record: gateSnapshot,
+      });
+
+      if (!transitionCheck.allowed) {
+        return NextResponse.json(
+          { error: transitionCheck.reason ?? "Invalid prepare joining transition." },
+          { status: 400 }
+        );
+      }
     }
 
     const passportValid = parseOptionalBoolean(body.passportValid);
@@ -666,9 +723,18 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.FULL_ACCESS)) {
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!checkPermission(session, "preJoining", PermissionLevel.FULL_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
+        { status: 403 }
+      );
+    }
+    if (!canMutateOperationalWorkflow(session.user?.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
         { status: 403 }
       );
     }

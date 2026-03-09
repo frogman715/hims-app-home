@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserApi } from "@/lib/authz";
 import { resolvePrincipalScopeId } from "@/lib/principal-scope";
+import { ensurePrepareJoiningForAcceptedCandidate } from "@/lib/operational-flow";
 
 type Decision = "APPROVE" | "REJECT";
 
@@ -47,6 +48,8 @@ export async function POST(
     },
     select: {
       id: true,
+      crewId: true,
+      principalId: true,
       status: true,
       remarks: true,
     },
@@ -65,29 +68,42 @@ export async function POST(
 
   const nextStatus = decision === "APPROVE" ? "ACCEPTED" : "REJECTED";
 
-  const updated = await prisma.application.update({
-    where: { id: application.id },
-    data: {
-      status: nextStatus,
-      reviewedBy: auth.user.id,
-      reviewedAt: new Date(),
-      remarks: mergeOwnerNote(application.remarks, body.note ?? null),
-    },
-    include: {
-      crew: {
-        select: {
-          id: true,
-          fullName: true,
-          rank: true,
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedApplication = await tx.application.update({
+      where: { id: application.id },
+      data: {
+        status: nextStatus,
+        reviewedBy: auth.user.id,
+        reviewedAt: new Date(),
+        remarks: mergeOwnerNote(application.remarks, body.note ?? null),
+      },
+      include: {
+        crew: {
+          select: {
+            id: true,
+            fullName: true,
+            rank: true,
+          },
+        },
+        principal: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-      principal: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
+    });
+
+    if (decision === "APPROVE") {
+      await ensurePrepareJoiningForAcceptedCandidate({
+        db: tx,
+        crewId: application.crewId,
+        principalId: application.principalId,
+        applicationId: application.id,
+      });
+    }
+
+    return updatedApplication;
   });
 
   return NextResponse.json({

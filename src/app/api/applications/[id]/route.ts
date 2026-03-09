@@ -11,6 +11,7 @@ import {
   HGI_DOCUMENT_ROLES,
 } from "@/lib/candidate-flow";
 import { isValidStateTransition } from "@/types/crewing";
+import { ensurePrepareJoiningForAcceptedCandidate } from "@/lib/operational-flow";
 
 // Define ApplicationStatus enum locally since it's not in Prisma schema
 enum ApplicationStatus {
@@ -22,16 +23,6 @@ enum ApplicationStatus {
   ACCEPTED = "ACCEPTED",
   REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
-}
-
-// Define PrepareJoiningStatus enum locally since it's not in Prisma schema
-enum PrepareJoiningStatus {
-  PENDING = "PENDING",
-  DOCUMENTS = "DOCUMENTS",
-  MEDICAL = "MEDICAL",
-  TRAINING = "TRAINING",
-  TRAVEL = "TRAVEL",
-  READY = "READY",
 }
 
 interface UpdateApplicationPayload {
@@ -52,15 +43,6 @@ const APPLICATION_STATUS_VALUES = new Set<ApplicationStatus>([
   ApplicationStatus.REJECTED,
   ApplicationStatus.CANCELLED,
 ]);
-
-const ACTIVE_PREPARE_JOINING_STATUSES: PrepareJoiningStatus[] = [
-  PrepareJoiningStatus.PENDING,
-  PrepareJoiningStatus.DOCUMENTS,
-  PrepareJoiningStatus.MEDICAL,
-  PrepareJoiningStatus.TRAINING,
-  PrepareJoiningStatus.TRAVEL,
-  PrepareJoiningStatus.READY,
-];
 
 function normalizeOptionalString(value?: string | null): string | null {
   if (value === undefined || value === null) {
@@ -298,33 +280,12 @@ export async function PUT(
 
     // Auto-create PrepareJoining record when application is ACCEPTED
     if (body.status === ApplicationStatus.ACCEPTED) {
-      const existingPrepare = await prisma.prepareJoining.findFirst({
-        where: {
-          crewId: application.crewId,
-          status: { in: ACTIVE_PREPARE_JOINING_STATUSES },
-        }
+      await ensurePrepareJoiningForAcceptedCandidate({
+        db: prisma,
+        crewId: application.crewId,
+        principalId: application.principalId,
+        applicationId: application.id,
       });
-
-      if (!existingPrepare) {
-        await prisma.prepareJoining.create({
-          data: {
-            crewId: application.crewId,
-            vesselId: null,
-            principalId: application.principalId,
-            status: PrepareJoiningStatus.PENDING,
-            passportValid: false,
-            seamanBookValid: false,
-            certificatesValid: false,
-            medicalValid: false,
-            visaValid: false,
-            orientationCompleted: false,
-            ticketBooked: false,
-            hotelBooked: false,
-            transportArranged: false,
-            remarks: `Auto-created from application ${application.id}`,
-          }
-        });
-      }
     }
 
     return NextResponse.json(application);

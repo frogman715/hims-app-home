@@ -155,7 +155,7 @@ export const SIDEBAR_ITEMS: Record<SidebarItemKey, SidebarItemConfig> = {
     requiredLevel: PermissionLevel.VIEW_ACCESS,
   },
   myDispatch: {
-    href: "/m/crew",
+    href: "/m/crew/dispatches",
     label: "My Dispatch",
     icon: "🛻",
     group: "DRIVER",
@@ -163,7 +163,7 @@ export const SIDEBAR_ITEMS: Record<SidebarItemKey, SidebarItemConfig> = {
     requiredLevel: PermissionLevel.VIEW_ACCESS,
   },
   letterGuarantee: {
-    href: "/m/crew/upload",
+    href: "/m/crew/dispatches",
     label: "Letter Guarantee",
     icon: "📄",
     group: "DRIVER",
@@ -171,7 +171,7 @@ export const SIDEBAR_ITEMS: Record<SidebarItemKey, SidebarItemConfig> = {
     requiredLevel: PermissionLevel.VIEW_ACCESS,
   },
   dispatchCheckinStatus: {
-    href: "/crewing/sign-off",
+    href: "/m/crew/dispatches",
     label: "Dispatch / Check-in Status",
     icon: "🛫",
     group: "DRIVER",

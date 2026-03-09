@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import type { ComponentType, ReactNode } from "react";
 
-type MobileTabKey = "home" | "documents" | "upload" | "profile";
+type MobileTabKey = "home" | "dispatch" | "documents" | "upload" | "profile";
 
 type MobileShellProps = {
   title: string;
@@ -88,6 +88,7 @@ const ProfileIcon: ComponentType<IconProps> = ({ className }) => (
 
 const NAV_ITEMS: Array<{ key: MobileTabKey; href: string; label: string; icon: ComponentType<IconProps> }> = [
   { key: "home", href: "/m/crew", label: "Home", icon: HomeIcon },
+  { key: "dispatch", href: "/m/crew/dispatches", label: "Dispatch", icon: HomeIcon },
   { key: "documents", href: "/m/crew/documents", label: "Documents", icon: DocumentIcon },
   { key: "upload", href: "/m/crew/upload", label: "Upload", icon: UploadIcon },
   { key: "profile", href: "/m/crew/profile", label: "Profile", icon: ProfileIcon },

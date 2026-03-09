@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPermission, PermissionLevel } from "@/lib/permission-middleware";
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 // Use Prisma enum instead of local enum
 type PrepareJoiningStatus = "PENDING" | "DOCUMENTS" | "MEDICAL" | "TRAINING" | "TRAVEL" | "READY" | "DISPATCHED" | "CANCELLED";
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (!checkPermission(session, "crew", PermissionLevel.VIEW_ACCESS)) {
+    if (!checkPermission(session, "preJoining", PermissionLevel.VIEW_ACCESS)) {
       console.error("[prepare-joining GET] Permission denied for user:", session.user?.email);
       return NextResponse.json(
         { error: "Insufficient permissions" },
@@ -111,9 +112,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!checkPermission(session, "crew", PermissionLevel.EDIT_ACCESS)) {
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!checkPermission(session, "preJoining", PermissionLevel.EDIT_ACCESS)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
+        { status: 403 }
+      );
+    }
+    if (!canMutateOperationalWorkflow(session.user?.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
         { status: 403 }
       );
     }
@@ -158,6 +168,13 @@ export async function POST(req: NextRequest) {
 
     if (!crew) {
       return NextResponse.json({ error: "Crew not found" }, { status: 404 });
+    }
+
+    if (status !== "PENDING") {
+      return NextResponse.json(
+        { error: "Initial prepare joining status must be PENDING." },
+        { status: 400 }
+      );
     }
 
     // Create prepare joining record

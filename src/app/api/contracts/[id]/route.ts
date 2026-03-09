@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkPermission, PermissionLevel } from "@/lib/permission-middleware";
+import { recordAuditLog } from "@/lib/audit-log";
 
 interface RouteParams {
   params: Promise<{
@@ -94,6 +95,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
+    const existingContract = await prisma.employmentContract.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        contractNumber: true,
+        crewId: true,
+      },
+    });
+
+    if (!existingContract) {
+      return NextResponse.json({ error: "Contract not found" }, { status: 404 });
+    }
 
     const contract = await prisma.employmentContract.update({
       where: {
@@ -160,6 +174,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
       },
     });
+
+    if (session.user.id && existingContract.status !== contract.status) {
+      await recordAuditLog({
+        actorUserId: session.user.id,
+        action: "EMPLOYMENT_CONTRACT_STATUS_CHANGED",
+        entityType: "EMPLOYMENT_CONTRACT",
+        entityId: contract.id,
+        metadata: {
+          contractNumber: contract.contractNumber,
+          crewId: contract.crewId,
+        },
+        before: { status: existingContract.status },
+        after: { status: contract.status },
+      });
+    }
 
     return NextResponse.json(contract);
   } catch (error) {

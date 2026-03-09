@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withPermission } from "@/lib/api-middleware";
 import { PermissionLevel } from "@/lib/permission-middleware";
 import { handleApiError, ApiError } from "@/lib/error-handler";
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 enum ComplianceStatus {
   NOT_STARTED = "NOT_STARTED",
@@ -37,7 +38,7 @@ export async function GET(
 ) {
   try {
     const params = await context.params;
-    return await withPermission<ComplianceHandlerContext>("compliance", PermissionLevel.VIEW_ACCESS, async (req, session, context) => {
+    return await withPermission<ComplianceHandlerContext>("visaClearance", PermissionLevel.VIEW_ACCESS, async (req, session, context) => {
       const compliance = await prisma.externalCompliance.findUnique({
         where: { id: context.params.id },
         include: {
@@ -66,7 +67,11 @@ export async function PUT(
 ) {
   try {
     const params = await context.params;
-    return await withPermission<ComplianceHandlerContext>("compliance", PermissionLevel.EDIT_ACCESS, async (req, session, context) => {
+    return await withPermission<ComplianceHandlerContext>("visaClearance", PermissionLevel.EDIT_ACCESS, async (req, session, context) => {
+      if (!canMutateOperationalWorkflow(session.user?.roles)) {
+        throw new ApiError(403, "Only OPERATIONAL or DIRECTOR can mutate operational workflow.", "FORBIDDEN");
+      }
+
       const body = await req.json();
       const { certificateId, issueDate, expiryDate, status, verificationUrl, notes } = body as Record<string, unknown>;
 
@@ -118,7 +123,11 @@ export async function DELETE(
 ) {
   try {
     const params = await context.params;
-    return await withPermission<ComplianceHandlerContext>("compliance", PermissionLevel.FULL_ACCESS, async (req, session, context) => {
+    return await withPermission<ComplianceHandlerContext>("visaClearance", PermissionLevel.FULL_ACCESS, async (req, session, context) => {
+      if (!canMutateOperationalWorkflow(session.user?.roles)) {
+        throw new ApiError(403, "Only OPERATIONAL or DIRECTOR can mutate operational workflow.", "FORBIDDEN");
+      }
+
       await prisma.externalCompliance.delete({
         where: { id: context.params.id },
       });

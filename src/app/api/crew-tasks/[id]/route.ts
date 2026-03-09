@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireUserApi } from "@/lib/authz";
+import { canMutateOperationalWorkflow } from "@/lib/operational-flow";
 
 // GET /api/crew-tasks/[id] - Get specific task
 export async function GET(
@@ -7,6 +9,12 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireUserApi();
+    if (!auth.ok) {
+      const statusCode = "status" in auth ? auth.status : 401;
+      return NextResponse.json({ error: "Unauthorized" }, { status: statusCode });
+    }
+
     const { id } = await context.params;
     const task = await prisma.crewTask.findUnique({
       where: { id },
@@ -41,6 +49,18 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireUserApi();
+    if (!auth.ok) {
+      const statusCode = "status" in auth ? auth.status : 401;
+      return NextResponse.json({ error: "Unauthorized" }, { status: statusCode });
+    }
+    if (!canMutateOperationalWorkflow(auth.user.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
     const body = await req.json();
     const { status, assignedTo, dueDate, remarks, completedAt, completedBy } = body;
@@ -87,6 +107,18 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireUserApi();
+    if (!auth.ok) {
+      const statusCode = "status" in auth ? auth.status : 401;
+      return NextResponse.json({ error: "Unauthorized" }, { status: statusCode });
+    }
+    if (!canMutateOperationalWorkflow(auth.user.roles)) {
+      return NextResponse.json(
+        { error: "Only OPERATIONAL or DIRECTOR can mutate operational workflow." },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
     await prisma.crewTask.delete({
       where: { id }
