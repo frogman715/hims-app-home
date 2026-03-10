@@ -22,7 +22,10 @@ export type SidebarItemKey =
   | "letterGuarantee"
   | "dispatchCheckinStatus"
   | "myCandidates"
-  | "history";
+  | "history"
+  | "myVessels"
+  | "joiningStatus"
+  | "replacementRequests";
 
 export type SidebarItemConfig = {
   href: string;
@@ -194,6 +197,30 @@ export const SIDEBAR_ITEMS: Record<SidebarItemKey, SidebarItemConfig> = {
     module: ModuleName.history,
     requiredLevel: PermissionLevel.VIEW_ACCESS,
   },
+  myVessels: {
+    href: "/principal/vessels",
+    label: "My Vessels",
+    icon: "🚢",
+    group: "PRINCIPAL",
+    module: ModuleName.principals,
+    requiredLevel: PermissionLevel.VIEW_ACCESS,
+  },
+  joiningStatus: {
+    href: "/principal/joining",
+    label: "Joining Status",
+    icon: "🧭",
+    group: "PRINCIPAL",
+    module: ModuleName.principals,
+    requiredLevel: PermissionLevel.VIEW_ACCESS,
+  },
+  replacementRequests: {
+    href: "/principal/replacements",
+    label: "Replacement Requests",
+    icon: "🔁",
+    group: "PRINCIPAL",
+    module: ModuleName.principals,
+    requiredLevel: PermissionLevel.VIEW_ACCESS,
+  },
 };
 
 export const SIDEBAR_BY_ROLE: Record<SidebarRole, SidebarItemKey[]> = {
@@ -202,7 +229,7 @@ export const SIDEBAR_BY_ROLE: Record<SidebarRole, SidebarItemKey[]> = {
   OPERATIONAL: ["approvedCandidates", "preJoining", "dispatch", "visaClearance"],
   ACCOUNTING: ["accounting", "invoices", "expenses"],
   DRIVER: ["myDispatch", "letterGuarantee", "dispatchCheckinStatus"],
-  PRINCIPAL: ["myCandidates", "history"],
+  PRINCIPAL: ["myCandidates", "myVessels", "joiningStatus", "replacementRequests", "history"],
 };
 
 const ROLE_ORDER: SidebarRole[] = ["DIRECTOR", "DOCUMENT", "OPERATIONAL", "ACCOUNTING", "DRIVER", "PRINCIPAL"];

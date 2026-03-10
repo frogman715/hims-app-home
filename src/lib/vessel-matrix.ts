@@ -106,7 +106,10 @@ function buildRows(input: {
   });
 }
 
-export async function buildVesselMatrix(input?: { vesselId?: string }): Promise<VesselMatrixVessel[]> {
+export async function buildVesselMatrix(input?: {
+  vesselId?: string;
+  principalId?: string;
+}): Promise<VesselMatrixVessel[]> {
   const now = new Date();
   const dueOffThresholdDays = getDueOffDaysThreshold();
 
@@ -114,6 +117,7 @@ export async function buildVesselMatrix(input?: { vesselId?: string }): Promise<
     where: {
       status: "ACTIVE",
       ...(input?.vesselId ? { id: input.vesselId } : {}),
+      ...(input?.principalId ? { principalId: input.principalId } : {}),
     },
     select: {
       id: true,
