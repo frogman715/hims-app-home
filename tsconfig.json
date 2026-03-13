@@ -29,14 +29,15 @@
     }
   },
   "include": [
-    "next-env.d.ts",
+    "**/*.mts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
+    ".next",
+    ".next/**/*",
     "node_modules",
     "REFACTORED_EXAMPLE_contracts_route.ts",
     "**/*EXAMPLE*",

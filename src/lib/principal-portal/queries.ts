@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { PrepareJoiningStatus } from "@prisma/client";
 import { ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/assignment-status";
 import { buildVesselMatrix } from "@/lib/vessel-matrix";
 
@@ -103,13 +104,13 @@ export async function listPrincipalCrewOptions(input: {
 
 export async function listPrincipalJoining(input: {
   principalId: string;
-  status?: string | null;
+  status?: PrepareJoiningStatus | null;
   vesselId?: string | null;
 }) {
   return prisma.prepareJoining.findMany({
     where: {
       principalId: input.principalId,
-      ...(input.status && input.status !== "ALL" ? { status: input.status } : {}),
+      ...(input.status ? { status: input.status } : {}),
       ...(input.vesselId ? { vesselId: input.vesselId } : {}),
     },
     select: {

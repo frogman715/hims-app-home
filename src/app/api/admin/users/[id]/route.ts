@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError, ApiError } from "@/lib/error-handler";
-import type { Role } from "@prisma/client";
 
 /**
  * GET /api/admin/users/[id]
@@ -92,10 +91,22 @@ export async function PUT(
 
     const body = await req.json();
     const { name, role, isSystemAdmin } = body;
+    const validRoles = [
+      "DIRECTOR",
+      "CDMO",
+      "OPERATIONAL",
+      "ACCOUNTING",
+      "HR",
+      "CREW_PORTAL",
+      "QMR",
+      "HR_ADMIN",
+      "SECTION_HEAD",
+      "STAFF",
+    ] as const;
+    type ValidRole = (typeof validRoles)[number];
 
     // Validate role if provided
     if (role) {
-      const validRoles = ["DIRECTOR", "CDMO", "OPERATIONAL", "ACCOUNTING", "HR", "CREW_PORTAL", "QMR", "HR_ADMIN", "SECTION_HEAD", "STAFF"];
       if (!validRoles.includes(role)) {
         throw new ApiError(400, `Invalid role. Must be one of: ${validRoles.join(", ")}`, "INVALID_ROLE");
       }
@@ -110,7 +121,7 @@ export async function PUT(
     // Prepare update data
     const updateData: {
       name?: string;
-      role?: Role;
+      role?: ValidRole;
       isSystemAdmin?: boolean;
     } = {};
 
@@ -118,7 +129,7 @@ export async function PUT(
       updateData.name = name;
     }
     if (role && role !== existingUser.role) {
-      updateData.role = role as Role;
+      updateData.role = role as ValidRole;
     }
     if (canSetSystemAdmin && typeof isSystemAdmin === 'boolean' && isSystemAdmin !== existingUser.isSystemAdmin) {
       updateData.isSystemAdmin = systemAdminValue;
