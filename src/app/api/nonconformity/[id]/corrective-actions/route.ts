@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { checkPermission, PermissionLevel } from '@/lib/permission-middleware';
@@ -8,10 +8,7 @@ import { handleApiError } from '@/lib/error-handler';
 // NOTE: CorrectiveAction model doesn't have nonconformity relationship
 // This endpoint returns CAPA records instead
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -31,18 +28,13 @@ export async function GET(
   }
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST() {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || !checkPermission(session, 'quality', PermissionLevel.EDIT_ACCESS)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
-    const body = await req.json();
 
     // CorrectiveAction model doesn't support this structure
     return NextResponse.json(

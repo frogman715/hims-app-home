@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type DispatchDetail = {
   id: string;
@@ -41,7 +41,7 @@ export default function DispatchDetailClient({ dispatchId }: { dispatchId: strin
   const [note, setNote] = useState("");
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
 
-  const fetchDispatch = async () => {
+  const fetchDispatch = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -60,11 +60,11 @@ export default function DispatchDetailClient({ dispatchId }: { dispatchId: strin
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatchId]);
 
   useEffect(() => {
     fetchDispatch();
-  }, [dispatchId]);
+  }, [fetchDispatch]);
 
   const nextStatuses = useMemo(() => {
     if (!dispatch) return [];

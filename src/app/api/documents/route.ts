@@ -12,6 +12,7 @@ import {
   getMaxFileSize,
   generateCrewDocumentFilename,
 } from "@/lib/upload-path";
+import { mapDocumentTypeToFolder } from "@/lib/crew-ops";
 
 // Configure max body size for file uploads
 export const config = {
@@ -208,9 +209,10 @@ export const POST = withPermission(
       extension: allowedExtension,
       issuedAt: parsedIssueDate,
     });
+    const normalizedDocType = docType.toUpperCase();
     
     // Build full file path using centralized utility
-    const filePath = buildCrewFilePath(crewId, crewSlug, fileName);
+    const filePath = buildCrewFilePath(crewId, crewSlug, fileName, mapDocumentTypeToFolder(normalizedDocType));
 
     // Save file with error handling and logging
     const bytes = await file.arrayBuffer();
@@ -247,8 +249,6 @@ export const POST = withPermission(
     // Store relative path in database for portability
     const relativePath = getRelativePath(filePath);
     const publicUrl = `/api/files/${relativePath}`;
-
-    const normalizedDocType = docType.toUpperCase();
 
     // Save to database
     const document = await prisma.crewDocument.create({

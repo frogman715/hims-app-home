@@ -264,7 +264,6 @@ export async function GET() {
     // const complaints = await prisma.complaint.count();
 
     // Configuration constants
-    const MAX_DESCRIPTION_LENGTH = 80;
     const MAX_PENDING_TASKS = 10;
     const ITEMS_PER_QUERY = 5;
     const DAYS_TO_MILLISECONDS = 24 * 60 * 60 * 1000;

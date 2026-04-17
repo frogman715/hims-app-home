@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getDocumentTypeLabel } from "@/lib/document-types";
+import { buildDocumentAlert, getDocumentAlertBuckets } from "@/lib/crew-readiness";
 import DocumentActions from "./DocumentActions";
 
 interface SeafarerDocument {
@@ -22,6 +23,14 @@ interface SeafarerDocument {
   fileUrl?: string | null;
 }
 
+interface ReminderQueueItem {
+  id: string;
+  recipientName: string | null;
+  subject: string;
+  emailType: string;
+  sentAt: string;
+}
+
 export default function Documents() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -29,6 +38,7 @@ export default function Documents() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, expiring, expired
   const [searchTerm, setSearchTerm] = useState('');
+  const [reminderQueue, setReminderQueue] = useState<ReminderQueueItem[]>([]);
 
   // Read filter from URL query params on mount
   useEffect(() => {
@@ -62,6 +72,7 @@ export default function Documents() {
       router.push("/auth/signin");
     } else {
       fetchDocuments();
+      fetchReminderQueue();
     }
   }, [session, status, router]);
 
@@ -76,6 +87,18 @@ export default function Documents() {
       console.error("Error fetching documents:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReminderQueue = async () => {
+    try {
+      const response = await fetch("/api/crewing/documents/reminder-queue");
+      if (response.ok) {
+        const data = await response.json();
+        setReminderQueue(data.data ?? []);
+      }
+    } catch (error) {
+      console.error("Error fetching reminder queue:", error);
     }
   };
 
@@ -161,6 +184,20 @@ export default function Documents() {
       }).length,
     [documents]
   );
+
+  const monitoringBuckets = useMemo(() => {
+    const alerts = documents
+      .filter((document) => document.expiryDate)
+      .map((document) =>
+        buildDocumentAlert({
+          id: document.id,
+          docType: document.docType,
+          docNumber: document.docNumber,
+          expiryDate: document.expiryDate ? new Date(document.expiryDate) : null,
+        })
+      );
+    return getDocumentAlertBuckets(alerts);
+  }, [documents]);
 
   if (status === "loading" || loading) {
     return (
@@ -264,6 +301,26 @@ export default function Documents() {
           </div>
         </section>
 
+        <section className="grid gap-4 xl:grid-cols-5">
+          <MonitoringCard title="Expired" tone="rose" items={monitoringBuckets.expired} />
+          <MonitoringCard title="Critical ≤30d" tone="orange" items={monitoringBuckets.critical} />
+          <MonitoringCard title="Warning ≤90d" tone="amber" items={monitoringBuckets.warning} />
+          <MonitoringCard title="Notice ≤180d" tone="sky" items={monitoringBuckets.notice} />
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Queued Reminders</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">{reminderQueue.length}</p>
+            <div className="mt-3 space-y-2 text-xs text-slate-700">
+              {reminderQueue.slice(0, 4).map((item) => (
+                <div key={item.id} className="rounded-xl bg-white px-3 py-2">
+                  <p className="font-semibold">{item.recipientName ?? "Unassigned"}</p>
+                  <p>{item.subject}</p>
+                </div>
+              ))}
+              {reminderQueue.length === 0 ? <p>No queued reminders.</p> : null}
+            </div>
+          </div>
+        </section>
+
         <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -323,6 +380,38 @@ export default function Documents() {
           )}
         </section>
       </main>
+    </div>
+  );
+}
+
+function MonitoringCard({
+  title,
+  tone,
+  items,
+}: {
+  title: string;
+  tone: "rose" | "orange" | "amber" | "sky";
+  items: Array<{ id: string; docLabel: string; daysUntilExpiry: number | null }>;
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    rose: "border-rose-200 bg-rose-50 text-rose-700",
+    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    sky: "border-sky-200 bg-sky-50 text-sky-700",
+  };
+
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${toneClasses[tone]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide">{title}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-900">{items.length}</p>
+      <div className="mt-3 space-y-2 text-xs text-slate-700">
+        {items.slice(0, 4).map((item) => (
+          <div key={item.id} className="rounded-xl bg-white px-3 py-2">
+            {item.docLabel} {item.daysUntilExpiry !== null ? `(${item.daysUntilExpiry}d)` : ""}
+          </div>
+        ))}
+        {items.length === 0 ? <p>No records.</p> : null}
+      </div>
     </div>
   );
 }

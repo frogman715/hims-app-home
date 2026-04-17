@@ -108,6 +108,9 @@ export default function PrepareJoiningPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [assignmentRiskByPrepareJoining, setAssignmentRiskByPrepareJoining] = useState<
+    Record<string, { level: "normal" | "elevated"; reasons: string[] }>
+  >({});
 
   // Optional spinner flag keeps inline updates responsive without flashing the full-page loader.
   const fetchPrepareJoinings = useCallback(async (showSpinner = true) => {
@@ -145,6 +148,46 @@ export default function PrepareJoiningPage() {
     }
     fetchPrepareJoinings();
   }, [session, status, router, fetchPrepareJoinings]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    let cancelled = false;
+    async function loadAdvisoryRisk() {
+      try {
+        const response = await fetch("/api/crewing/readiness");
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as {
+          data: Array<{
+            prepareJoiningId: string;
+            assignmentRisk: { level: "normal" | "elevated"; reasons: string[] };
+          }>;
+        };
+        if (cancelled) {
+          return;
+        }
+        const nextState = payload.data.reduce<Record<string, { level: "normal" | "elevated"; reasons: string[] }>>(
+          (accumulator, item) => {
+            accumulator[item.prepareJoiningId] = item.assignmentRisk;
+            return accumulator;
+          },
+          {}
+        );
+        setAssignmentRiskByPrepareJoining(nextState);
+      } catch (fetchError) {
+        console.error("Error fetching readiness advisory:", fetchError);
+      }
+    }
+
+    loadAdvisoryRisk();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, fetchPrepareJoinings]);
 
   const updateChecklistItem = async (
     id: string,
@@ -266,9 +309,14 @@ export default function PrepareJoiningPage() {
               Integrated checklist to ensure crew is ready to depart to destination vessel.
             </p>
           </div>
-          <Link href="/crewing/workflow" className="action-pill text-sm">
-            ← Crew Workflow
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/crewing/readiness" className="action-pill text-sm">
+              Advisory Readiness
+            </Link>
+            <Link href="/crewing/workflow" className="action-pill text-sm">
+              ← Crew Workflow
+            </Link>
+          </div>
         </div>
 
         <div className="surface-card p-5">
@@ -314,6 +362,7 @@ export default function PrepareJoiningPage() {
           <div className="section-stack">
             {prepareJoinings.map((pj) => {
               const progress = getProgressPercentage(pj);
+              const assignmentRisk = assignmentRiskByPrepareJoining[pj.id];
               return (
                 <div key={pj.id} className="surface-card overflow-hidden">
                   <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border-b border-emerald-100/70 p-6">
@@ -327,6 +376,11 @@ export default function PrepareJoiningPage() {
                           <p className="text-sm text-slate-600">
                             {pj.crew.rank} • {pj.crew.nationality || "N/A"}
                           </p>
+                          {assignmentRisk?.level === "elevated" ? (
+                            <p className="mt-2 inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                              Assignment Risk Advisory
+                            </p>
+                          ) : null}
                           {pj.crew.phone ? (
                             <p className="text-xs text-slate-500 mt-1">📞 {pj.crew.phone}</p>
                           ) : null}
@@ -374,7 +428,14 @@ export default function PrepareJoiningPage() {
                   </div>
                   <div className="p-6 space-y-6">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <h4 className="text-lg font-semibold text-slate-900">Checklist Progress</h4>
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-900">Checklist Progress</h4>
+                        {assignmentRisk?.level === "elevated" ? (
+                          <p className="mt-1 text-xs font-medium text-rose-600">
+                            {assignmentRisk.reasons.join(" ")}
+                          </p>
+                        ) : null}
+                      </div>
                       <Link
                         href={`/api/forms/letter-guarantee/${pj.id}`}
                         target="_blank"

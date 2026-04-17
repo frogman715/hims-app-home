@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureCrewDigitalFolders, generateNextCrewCode } from "@/lib/crew-ops";
 import { withPermission } from "@/lib/api-middleware";
 import { PermissionLevel } from "@/lib/permission-middleware";
 
@@ -365,8 +366,16 @@ export const POST = withPermission(
         const rowNumber = idx + 2;
 
         try {
+          const crewCode = await generateNextCrewCode(() =>
+            prisma.crew.findFirst({
+              where: { crewCode: { not: null } },
+              orderBy: { crewCode: "desc" },
+              select: { crewCode: true },
+            })
+          );
           const created = await prisma.crew.create({
             data: {
+              crewCode,
               fullName: crew.fullName.trim(),
               rank: crew.rank.trim(),
               email: crew.email?.trim() || null,
@@ -386,8 +395,10 @@ export const POST = withPermission(
               heightCm: crew.heightCm || null,
               weightKg: crew.weightKg || null,
               status: (crew.status?.toUpperCase() || "STANDBY") as "STANDBY" | "ONBOARD" | "OFF_SIGNED" | "BLOCKED",
+              crewStatus: "AVAILABLE",
             },
           });
+          ensureCrewDigitalFolders(created.id);
           createdCrews.push(created);
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : "Database error";

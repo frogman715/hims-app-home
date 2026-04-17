@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 
 interface Crew {
   id: string;
+  crewCode: string | null;
   fullName: string;
   dateOfBirth: string | null;
   nationality: string | null;
@@ -14,6 +15,7 @@ interface Crew {
   seamanBookNumber: string | null;
   rank: string;
   status: string;
+  crewStatus: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -368,8 +370,23 @@ export default function CrewDetailPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{crew.fullName}</h1>
             <p className="text-gray-700 mt-1">{crew.rank} • {crew.status}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {crew.crewCode ?? "Crew ID pending"} • Operational Status: {crew.crewStatus ?? "AVAILABLE"}
+            </p>
           </div>
           <div className="flex space-x-3">
+            <Link
+              href={`/api/crewing/seafarers/${crewId}/cv?format=pdf`}
+              className="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
+            >
+              Download CV PDF
+            </Link>
+            <Link
+              href={`/api/crewing/seafarers/${crewId}/cv?download=1`}
+              className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
+            >
+              Download CV
+            </Link>
             <Link
               href={`/crew/${crewId}/edit`}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"

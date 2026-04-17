@@ -2,32 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserApi } from "@/lib/authz";
 import { resolvePrincipalScopeId } from "@/lib/principal-scope";
-
-function buildCvText(data: {
-  candidateName: string;
-  rank: string | null;
-  nationality: string | null;
-  dateOfBirth: Date | null;
-  passportNumber: string | null;
-  seamanBookNumber: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
-}): string {
-  return [
-    "HGI Candidate CV",
-    "================",
-    `Name: ${data.candidateName}`,
-    `Rank: ${data.rank ?? "-"}`,
-    `Nationality: ${data.nationality ?? "-"}`,
-    `Date of Birth: ${data.dateOfBirth ? data.dateOfBirth.toISOString().split("T")[0] : "-"}`,
-    `Passport Number: ${data.passportNumber ?? "-"}`,
-    `Seaman Book Number: ${data.seamanBookNumber ?? "-"}`,
-    `Email: ${data.email ?? "-"}`,
-    `Phone: ${data.phone ?? "-"}`,
-    `Address: ${data.address ?? "-"}`,
-  ].join("\n");
-}
+import { canAccessRedData, decrypt } from "@/lib/crypto";
+import { maskPassport } from "@/lib/masking";
+import { buildCrewCvPayload, renderCrewCvText } from "@/lib/cv-template";
 
 export async function GET(
   request: NextRequest,
@@ -67,6 +44,34 @@ export async function GET(
           email: true,
           phone: true,
           address: true,
+          emergencyContactName: true,
+          emergencyContact: true,
+          documents: {
+            where: { isActive: true },
+            select: {
+              docType: true,
+              docNumber: true,
+              expiryDate: true,
+            },
+            orderBy: { expiryDate: "asc" },
+          },
+          contracts: {
+            orderBy: { contractStart: "desc" },
+            take: 1,
+            select: {
+              rank: true,
+              contractStart: true,
+              contractEnd: true,
+              status: true,
+              vessel: { select: { name: true } },
+              principal: { select: { name: true } },
+            },
+          },
+        },
+      },
+      principal: {
+        select: {
+          name: true,
         },
       },
     },
@@ -76,24 +81,53 @@ export async function GET(
     return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
   }
 
-  const cvPayload = {
+  let passportNumber = application.crew.passportNumber;
+  if (passportNumber) {
+    const hasRedAccess = canAccessRedData(auth.session.user.roles ?? [], "identity");
+    if (hasRedAccess) {
+      try {
+        passportNumber = decrypt(passportNumber);
+      } catch {
+        passportNumber = maskPassport(passportNumber);
+      }
+    } else {
+      passportNumber = maskPassport(passportNumber);
+    }
+  }
+
+  const latestContract = application.crew.contracts[0];
+  const cvPayload = buildCrewCvPayload({
     candidateName: application.crew.fullName,
     rank: application.crew.rank,
     nationality: application.crew.nationality,
     dateOfBirth: application.crew.dateOfBirth,
-    passportNumber: application.crew.passportNumber,
+    passportNumber,
     seamanBookNumber: application.crew.seamanBookNumber,
     email: application.crew.email,
     phone: application.crew.phone,
     address: application.crew.address,
-  };
+    emergencyContact: application.crew.emergencyContactName ?? application.crew.emergencyContact,
+    applicationPosition: application.position,
+    sourceLabel: application.principal?.name ?? "Principal candidate",
+    documents: application.crew.documents,
+    latestContract: latestContract
+      ? {
+          rank: latestContract.rank,
+          contractStart: latestContract.contractStart,
+          contractEnd: latestContract.contractEnd,
+          status: latestContract.status,
+          vesselName: latestContract.vessel?.name ?? null,
+          principalName: latestContract.principal?.name ?? null,
+        }
+      : null,
+  });
 
   const shouldDownload = new URL(request.url).searchParams.get("download") === "1";
   if (!shouldDownload) {
     return NextResponse.json({ data: cvPayload });
   }
 
-  const cvText = buildCvText(cvPayload);
+  const cvText = renderCrewCvText(cvPayload);
   const fileName = `${application.crew.fullName.replace(/\s+/g, "_").toLowerCase()}_cv.txt`;
 
   return new NextResponse(cvText, {

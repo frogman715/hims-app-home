@@ -168,6 +168,7 @@ export const createSeafarerSchema = z.object({
   coverallSize: z.string().optional().nullable(),
   shoeSize: z.string().optional().nullable(),
   waistSize: z.string().optional().nullable(),
+  crewStatus: z.enum(["AVAILABLE", "ON_BOARD", "STANDBY", "MEDICAL", "DOCUMENT_ISSUE"]).optional().nullable(),
 });
 
 export type CreateSeafarerInput = z.infer<typeof createSeafarerSchema>;

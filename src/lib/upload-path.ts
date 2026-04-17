@@ -51,7 +51,7 @@ export function getMaxFileSize(): number {
  * const dir = ensureCrewUploadDir("cm123abc", "JOHN_DOE_MASTER");
  * // Returns: /home/hanmarine/seafarers_files/cm123abc_JOHN_DOE_MASTER
  */
-export function ensureCrewUploadDir(crewId: string | number, slug: string): string {
+export function ensureCrewUploadDir(crewId: string | number, slug: string, subfolder?: string): string {
   const base = getUploadBaseDir();
   
   // Sanitize inputs to prevent directory traversal
@@ -59,7 +59,9 @@ export function ensureCrewUploadDir(crewId: string | number, slug: string): stri
   const sanitizedSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '');
   
   const dirname = `${sanitizedId}_${sanitizedSlug}`;
-  const fullPath = path.join(base, dirname);
+  const fullPath = subfolder
+    ? path.join(base, "crew-files", sanitizedId, subfolder.replace(/[^a-zA-Z0-9_-]/g, ""))
+    : path.join(base, dirname);
 
   // Create directory if it doesn't exist
   if (!fs.existsSync(fullPath)) {
@@ -84,9 +86,10 @@ export function ensureCrewUploadDir(crewId: string | number, slug: string): stri
 export function buildCrewFilePath(
   crewId: string | number,
   slug: string,
-  filename: string
+  filename: string,
+  subfolder?: string
 ): string {
-  const dir = ensureCrewUploadDir(crewId, slug);
+  const dir = ensureCrewUploadDir(crewId, slug, subfolder);
   
   // Sanitize filename to prevent path traversal
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9_.\-]/g, '_');

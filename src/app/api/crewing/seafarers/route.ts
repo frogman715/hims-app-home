@@ -5,6 +5,7 @@ import { PermissionLevel } from "@/lib/permission-middleware";
 import { handleApiError, ApiError, validatePagination } from "@/lib/error-handler";
 import { createSeafarerSchema } from "@/types/crewing";
 import type { Prisma } from "@prisma/client";
+import { ensureCrewDigitalFolders, generateNextCrewCode } from "@/lib/crew-ops";
 
 /**
  * GET /api/crewing/seafarers
@@ -108,9 +109,17 @@ export const POST = withPermission(
       }
 
       const data = validationResult.data;
+      const crewCode = await generateNextCrewCode(() =>
+        prisma.crew.findFirst({
+          where: { crewCode: { not: null } },
+          orderBy: { crewCode: "desc" },
+          select: { crewCode: true },
+        })
+      );
 
       // Convert string dates to Date objects
       const seafarerData: Prisma.CrewCreateInput = {
+        crewCode,
         fullName: data.fullName,
         rank: data.rank,
         nationality: data.nationality,
@@ -130,6 +139,7 @@ export const POST = withPermission(
         seamanBookNumber: data.seamanBookNumber || null,
         placeOfBirth: data.placeOfBirth || null,
         status: "STANDBY",
+        crewStatus: "AVAILABLE",
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
         passportExpiry: data.passportExpiry ? new Date(data.passportExpiry) : null,
         seamanBookExpiry: data.seamanBookExpiry ? new Date(data.seamanBookExpiry) : null,
@@ -138,6 +148,7 @@ export const POST = withPermission(
       const seafarer = await prisma.crew.create({
         data: seafarerData,
       });
+      ensureCrewDigitalFolders(seafarer.id);
 
       return NextResponse.json(seafarer, { status: 201 });
     } catch (error) {

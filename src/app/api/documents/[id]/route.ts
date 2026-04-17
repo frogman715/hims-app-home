@@ -13,6 +13,7 @@ import {
   getAbsolutePath,
   deleteFileSafe,
 } from "@/lib/upload-path";
+import { mapDocumentTypeToFolder } from "@/lib/crew-ops";
 
 export async function GET(
   request: NextRequest,
@@ -195,7 +196,12 @@ export async function PUT(
         issuedAt: updateData.issueDate,
       });
 
-      const filePath = buildCrewFilePath(existingDocument.crewId, crewSlug, fileName);
+      const filePath = buildCrewFilePath(
+        existingDocument.crewId,
+        crewSlug,
+        fileName,
+        mapDocumentTypeToFolder(docType)
+      );
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);

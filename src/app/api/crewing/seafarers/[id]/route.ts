@@ -102,6 +102,7 @@ export const PUT = withPermission(
       
       if (data.fullName !== undefined) updateData.fullName = data.fullName;
       if (data.rank !== undefined) updateData.rank = data.rank;
+      if (data.crewStatus !== undefined) updateData.crewStatus = data.crewStatus;
       if (data.nationality !== undefined) updateData.nationality = data.nationality;
       if (data.phone !== undefined) updateData.phone = data.phone;
       if (data.email !== undefined) updateData.email = data.email || null;
