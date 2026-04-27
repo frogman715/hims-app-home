@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { env } from "@/lib/env";
 
-const PUBLIC_PREFIXES = ["/auth", "/_next", "/favicon.ico", "/icons", "/manifest.json", "/sw.js"];
+const PUBLIC_PREFIXES = ["/", "/auth", "/login-portal", "/_next", "/favicon.ico", "/icons", "/manifest.json", "/sw.js"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

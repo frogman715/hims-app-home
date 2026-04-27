@@ -1,0 +1,15 @@
+root_folder,category,recognized,relative_path
+00_SYSTEM,system,yes,00_SYSTEM
+01_SCAN DOCS,inbox_scan,yes,01_SCAN DOCS
+02_OPERATIONAL,operational,yes,02_OPERATIONAL
+03_ACCOUNTING,accounting,yes,03_ACCOUNTING
+04_DOCUMENT,crew_document,yes,04_DOCUMENT
+05_IMRON,legacy_or_owner_review,yes,05_IMRON
+06_LEGAL,legal,yes,06_LEGAL
+99_ARCHIVE,archive,yes,99_ARCHIVE
+AUDIT INTERGIS,audit_compliance,yes,AUDIT INTERGIS
+closing deficiency,audit_deficiency,yes,closing deficiency
+CREW REPLACEMENT PLAN,operational_planning,yes,CREW REPLACEMENT PLAN
+HANMARINE GLOBAL INDONESIA,company_general,yes,HANMARINE GLOBAL INDONESIA
+HANMARINE REQUEST CREW,crew_request,yes,HANMARINE REQUEST CREW
+PENGANTAR MCU,medical_mcu,yes,PENGANTAR MCU

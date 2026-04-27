@@ -1683,6 +1683,28 @@ model AuditFile {
   updatedAt DateTime @updatedAt
 }
 
+model DocumentIndex {
+  id                   String   @id @default(cuid())
+  sourceDataset        String   @default("docs/hgi-document-audit/output/inventory.json")
+  originalRelativePath String   @unique
+  originalAbsolutePath String
+  fileName             String
+  normalizedFilename   String?
+  extension            String?
+  sizeBytes            Int?
+  modifiedTime         DateTime?
+  rootFolder           String?
+  category             String?
+  reviewFlag           String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([rootFolder])
+  @@index([category])
+  @@index([reviewFlag])
+  @@index([fileName])
+}
+
 // ==========================
 // EXTERNAL COMPLIANCE SYSTEMS
 // ==========================
